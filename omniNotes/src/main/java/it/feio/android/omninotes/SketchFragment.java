@@ -95,15 +95,16 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
             .decodeStream(getActivity().getContentResolver().openInputStream(baseUri));
         binding.drawing.setBackgroundBitmap(getActivity(), bmp);
       } catch (FileNotFoundException e) {
-        LogDelegate.e("Error replacing sketch bitmap background", e);
+        LogDelegate.errorLog("Error replacing sketch bitmap background", e);
       }
     }
 
     // Show the Up button in the action bar.
-    if (getMainActivity().getSupportActionBar() != null) {
-      getMainActivity().getSupportActionBar().setDisplayShowTitleEnabled(true);
-      getMainActivity().getSupportActionBar().setTitle(R.string.title_activity_sketch);
-      getMainActivity().getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+    if (getActionBar() != null) {
+      getActionBar().setDisplayShowTitleEnabled(true);
+      getActionBar().setTitle(R.string.title_activity_sketch);
+      getActionBar().setDisplayHomeAsUpEnabled(true);
     }
 
     binding.sketchStroke.setOnClickListener(v -> {
@@ -174,12 +175,16 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
     mColorPicker.setOldCenterColor(binding.drawing.getStrokeColor());
   }
 
+  private java.lang.Object getActionBar() {
+    return getMainActivity().getSupportActionBar();
+  }
+
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
     if (item.getItemId() == android.R.id.home) {
       getActivity().onBackPressed();
     } else {
-      LogDelegate.e("Wrong element choosen: " + item.getItemId());
+      LogDelegate.errorLog("Wrong element choosen: " + item.getItemId());
     }
     return super.onOptionsItemSelected(item);
   }
@@ -190,6 +195,7 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
     if (bitmap != null) {
 
       try {
+        assert getArguments() != null;
         Uri uri = getArguments().getParcelable(MediaStore.EXTRA_OUTPUT);
         File bitmapFile = new File(uri.getPath());
         FileOutputStream out = new FileOutputStream(bitmapFile);
@@ -202,7 +208,7 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
         }
 
       } catch (Exception e) {
-        LogDelegate.e("Error writing sketch image data", e);
+        LogDelegate.errorLog("Error writing sketch image data", e);
       }
     }
   }
@@ -272,7 +278,7 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
 
     int newSize = Math.round((size / 100f) * calcProgress);
     int offset = (size - newSize) / 2;
-    LogDelegate.v("Stroke size " + newSize + " (" + calcProgress + "%)");
+    LogDelegate.vervoseLog("Stroke size " + newSize + " (" + calcProgress + "%)");
 
     LayoutParams lp = new LayoutParams(newSize, newSize);
     lp.setMargins(offset, offset, offset, offset);

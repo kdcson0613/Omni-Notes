@@ -60,11 +60,11 @@ public class CategoryActivity extends AppCompatActivity implements
     category = getIntent().getParcelableExtra(INTENT_CATEGORY);
 
     if (category == null) {
-      LogDelegate.d("Adding new category");
+      LogDelegate.debugLog("Adding new category");
       category = new Category();
       category.setColor(String.valueOf(getRandomPaletteColor()));
     } else {
-      LogDelegate.d("Editing category " + category.getName());
+      LogDelegate.debugLog("Editing category " + category.getName());
     }
     selectedColor = parseInt(category.getColor());
     populateViews();
@@ -77,10 +77,7 @@ public class CategoryActivity extends AppCompatActivity implements
 
   public void showColorChooserCustomColors() {
 
-    new ColorChooserDialog.Builder(this, R.string.colors)
-        .dynamicButtonColor(false)
-        .preselect(selectedColor)
-        .show(this);
+    new ColorChooserDialog.Builder(this, R.string.colors).dynamicButtonColor(false).preselect(selectedColor).show(this);
   }
 
   @Override
@@ -105,27 +102,21 @@ public class CategoryActivity extends AppCompatActivity implements
     // Reset picker to saved color
     String color = category.getColor();
     if (color != null && color.length() > 0) {
-      binding.colorChooser.getDrawable().mutate()
-          .setColorFilter(parseInt(color), PorterDuff.Mode.SRC_ATOP);
+      binding.colorChooser.getDrawable().mutate().setColorFilter(parseInt(color), PorterDuff.Mode.SRC_ATOP);
     }
-    binding.delete
-        .setVisibility(TextUtils.isEmpty(category.getName()) ? View.INVISIBLE : View.VISIBLE);
-
+    binding.delete.setVisibility(TextUtils.isEmpty(category.getName()) ? View.INVISIBLE : View.VISIBLE);
     binding.save.setOnClickListener(v -> saveCategory());
     binding.delete.setOnClickListener(v -> deleteCategory());
     binding.colorChooser.setOnClickListener(v -> showColorChooserCustomColors());
   }
 
   public void saveCategory() {
-
     int lenOfTitle = binding.categoryTitle.getText().toString().length();
     if (lenOfTitle == 0) {
       binding.categoryTitle.setError(getString(R.string.category_missing_title));
       return;
     }
-
-    Long id =
-        category.getId() != null ? category.getId() : Calendar.getInstance().getTimeInMillis();
+    Long id = category.getId() != null ? category.getId() : Calendar.getInstance().getTimeInMillis();
     category.setId(id);
     category.setName(binding.categoryTitle.getText().toString());
     category.setDescription(binding.categoryDescription.getText().toString());
@@ -134,9 +125,8 @@ public class CategoryActivity extends AppCompatActivity implements
     }
 
     // Saved to DB and new ID or update result catched
-    DbHelper db = DbHelper.getInstance();
-    category = db.updateCategory(category);
-
+    DbHelper dbHelperIn = DbHelper.getInstance();
+    category = dbHelperIn.updateCategory(category);
     // Sets result to show proper message
     getIntent().putExtra(INTENT_CATEGORY, category);
     setResult(RESULT_OK, getIntent());
@@ -159,9 +149,8 @@ public class CategoryActivity extends AppCompatActivity implements
             Prefs.edit().putString(PREF_NAVIGATION, navNotes).apply();
           }
           // Removes category and edit notes associated with it
-          DbHelper db = DbHelper.getInstance();
-          db.deleteCategory(category);
-
+          DbHelper dbHelperIn = DbHelper.getInstance();
+          dbHelperIn.deleteCategory(category);
           EventBus.getDefault().post(new CategoriesUpdatedEvent());
           BaseActivity.notifyAppWidgets(OmniNotes.getAppContext());
 

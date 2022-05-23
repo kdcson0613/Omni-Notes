@@ -82,7 +82,7 @@ public class BaseActivity extends AppCompatActivity {
         menuKeyField.setBoolean(config, false);
       }
     } catch (Exception e) {
-      LogDelegate.w("Just a little issue in physical menu button management", e);
+      LogDelegate.warningLog("Just a little issue in physical menu button management", e);
     }
     super.onCreate(savedInstanceState);
   }
@@ -93,7 +93,7 @@ public class BaseActivity extends AppCompatActivity {
     super.onResume();
     String navNotes = getResources().getStringArray(R.array.navigation_list_codes)[0];
     navigation = Prefs.getString(PREF_NAVIGATION, navNotes);
-    LogDelegate.d(Prefs.getAll().toString());
+    LogDelegate.debugLog(Prefs.getAll().toString());
   }
 
 
@@ -108,28 +108,26 @@ public class BaseActivity extends AppCompatActivity {
    * Method to validate security password to protect a list of notes. When "Request password on
    * access" in switched on this check not required all the times. It uses an interface callback.
    */
-  public void requestPassword(final Activity mActivity, List<Note> notes,
-      final PasswordValidator mPasswordValidator) {
-    if (Prefs.getBoolean("settings_password_access", false)) {
-      mPasswordValidator.onPasswordValidated(PasswordValidator.Result.SUCCEED);
-      return;
-    }
-
-    boolean askForPassword = false;
-    for (Note note : notes) {
-      if (note.isLocked()) {
-        askForPassword = true;
-        break;
-      }
-    }
-    if (askForPassword) {
-      PasswordHelper.requestPassword(mActivity, mPasswordValidator);
-    } else {
-      mPasswordValidator.onPasswordValidated(PasswordValidator.Result.SUCCEED);
-    }
-  }
-
-
+   public void requestPassword(final Activity mActivity, List<Note> notes, final PasswordValidator mPasswordValidator) {
+	    if (Prefs.getBoolean("settings_password_access", false)) {
+	      mPasswordValidator(mPasswordValidator);
+	      return;
+	    }
+	    boolean askForPassword = false;
+	    for (Note note : notes) {
+	      if (note.isLocked()) {
+	        askForPassword = true;
+	        break;
+	      }
+	    }
+	    if (askForPassword) {
+	      PasswordHelper.requestPassword(mActivity, mPasswordValidator);
+	    } else {
+	    	mPasswordValidator(mPasswordValidator);    }
+	  }
+	private void mPasswordValidator(final PasswordValidator mPasswordValidator) {
+		mPasswordValidator.onPasswordValidated(PasswordValidator.Result.SUCCEED);
+	}
   public boolean updateNavigation(String nav) {
     boolean isNavEqualsTmp = nav.equals(navigationTmp);
     boolean isnavEqualsNavi = Navigation.getNavigationText().equals(nav);
@@ -158,11 +156,10 @@ public class BaseActivity extends AppCompatActivity {
    */
   public static void notifyAppWidgets(Context context) {
     // Home widgets
-    AppWidgetManager mgr = AppWidgetManager.getInstance(context);
-    int[] ids = mgr.getAppWidgetIds(new ComponentName(context, ListWidgetProvider.class));
-    LogDelegate.d("Notifies AppWidget data changed for widgets " + Arrays.toString(ids));
-    mgr.notifyAppWidgetViewDataChanged(ids, R.id.widget_list);
-
+    AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+    int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(context, ListWidgetProvider.class));
+    LogDelegate.debugLog("Notifies AppWidget data changed for widgets " + Arrays.toString(ids));
+    appWidgetManager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list);
     // Dashclock
     LocalBroadcastManager.getInstance(context).sendBroadcast(new Intent(INTENT_UPDATE_DASHCLOCK));
   }
@@ -172,13 +169,10 @@ public class BaseActivity extends AppCompatActivity {
   protected void animateTransition(FragmentTransaction transaction, int direction) {
     switch (direction) {
       case TRANSITION_HORIZONTAL:
-        transaction.setCustomAnimations(R.anim.fade_in_support, R.anim.fade_out_support,
-                R.anim.fade_in_support, R.anim.fade_out_support);
-        break;
+      transaction.setCustomAnimations(R.anim.fade_in_support, R.anim.fade_out_support, R.anim.fade_in_support, R.anim.fade_out_support);
+    break;
       case TRANSITION_VERTICAL:
-        transaction.setCustomAnimations(
-                R.anim.anim_in, R.anim.anim_out, R.anim.anim_in_pop, R.anim.anim_out_pop);
-        break;
+      transaction.setCustomAnimations(R.anim.anim_in, R.anim.anim_out, R.anim.anim_in_pop, R.anim.anim_out_pop);break;
     }
   }
 
@@ -188,11 +182,15 @@ public class BaseActivity extends AppCompatActivity {
     int actionBarTitle = Resources.getSystem().getIdentifier("action_bar_title", "ID", "android");
     android.widget.TextView actionBarTitleView = getWindow().findViewById(actionBarTitle);
     Typeface font = Typeface.createFromAsset(getAssets(), "fonts/Roboto-Regular.ttf");
-    if (actionBarTitleView != null) {
+
+    boolean notEmptyActionBarTitleView = actionBarTitleView != null;
+    boolean notEmptySupportActionBar = getSupportActionBar() != null;
+
+    if (notEmptyActionBarTitleView) {
       actionBarTitleView.setTypeface(font);
     }
 
-    if (getSupportActionBar() != null) {
+    if (notEmptySupportActionBar) {
       getSupportActionBar().setTitle(title);
     }
   }

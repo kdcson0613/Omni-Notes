@@ -48,6 +48,9 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.pixplicity.easyprefs.library.Prefs;
+
+import org.apache.commons.collections4.ArrayStack;
+
 import de.greenrobot.event.EventBus;
 import de.keyboardsurfer.android.widget.crouton.Crouton;
 import de.keyboardsurfer.android.widget.crouton.Style;
@@ -65,12 +68,15 @@ import it.feio.android.omninotes.models.Category;
 import it.feio.android.omninotes.models.Note;
 import it.feio.android.omninotes.models.ONStyle;
 import it.feio.android.omninotes.utils.FileProviderHelper;
+import it.feio.android.omninotes.utils.Navigation;
 import it.feio.android.omninotes.utils.PasswordHelper;
 import it.feio.android.omninotes.utils.SystemHelper;
 import it.feio.android.pixlui.links.UrlCompleter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -83,12 +89,13 @@ public class MainActivity extends BaseActivity implements
   public final static String FRAGMENT_LIST_TAG = "fragment_list";
   public final static String FRAGMENT_DETAIL_TAG = "fragment_detail";
   public final static String FRAGMENT_SKETCH_TAG = "fragment_sketch";
-  @Getter @Setter
+  @Getter
+  @Setter
   private Uri sketchUri;
-  boolean prefsChanged = false;
+  private boolean prefsChanged = false;
   private FragmentManager mFragmentManager;
 
-  ActivityMainBinding binding;
+  private ActivityMainBinding binding;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -107,7 +114,6 @@ public class MainActivity extends BaseActivity implements
     if (IntroActivity.mustRun()) {
       startActivity(new Intent(getApplicationContext(), IntroActivity.class));
     }
-
   }
 
   @Override
@@ -134,13 +140,13 @@ public class MainActivity extends BaseActivity implements
     getSupportActionBar().setHomeButtonEnabled(true);
   }
 
-
   /**
    * This method starts the bootstrap chain.
    */
   private void checkPassword() {
-    if (Prefs.getString(PREF_PASSWORD, null) != null
-        && Prefs.getBoolean("settings_password_access", false)) {
+    boolean passwordExists = Prefs.getString(PREF_PASSWORD, null) != null
+            && Prefs.getBoolean("settings_password_access", false);
+    if (passwordExists) {
       PasswordHelper.requestPassword(this, passwordConfirmed -> {
         switch (passwordConfirmed) {
           case SUCCEED:
@@ -158,33 +164,39 @@ public class MainActivity extends BaseActivity implements
     }
   }
 
-
   public void onEvent(PasswordRemovedEvent passwordRemovedEvent) {
     showMessage(R.string.password_successfully_removed, ONStyle.ALERT);
     init();
   }
 
-
   private void init() {
+    setPasswordAcceptedTrue();
+    initNavigationDrawerFragment();
+    beginListFragmentTransaction();
+    handleIntents();
+  }
+
+  private void setPasswordAcceptedTrue() {
     isPasswordAccepted = true;
+  }
 
-    getFragmentManagerInstance();
-
+  private void initNavigationDrawerFragment() {
     NavigationDrawerFragment mNavigationDrawerFragment = (NavigationDrawerFragment) getFragmentManagerInstance()
-        .findFragmentById(R.id.navigation_drawer);
+            .findFragmentById(R.id.navigation_drawer);
     if (mNavigationDrawerFragment == null) {
       FragmentTransaction fragmentTransaction = getFragmentManagerInstance().beginTransaction();
       fragmentTransaction.replace(R.id.navigation_drawer, new NavigationDrawerFragment(),
-          FRAGMENT_DRAWER_TAG).commit();
+              FRAGMENT_DRAWER_TAG).commit();
     }
+  }
 
-    if (getFragmentManagerInstance().findFragmentByTag(FRAGMENT_LIST_TAG) == null) {
+  private void beginListFragmentTransaction() {
+    ListFragment mListFragment = (ListFragment) getFragmentManagerInstance().findFragmentByTag(FRAGMENT_LIST_TAG);
+    if (mListFragment == null) {
       FragmentTransaction fragmentTransaction = getFragmentManagerInstance().beginTransaction();
       fragmentTransaction.add(R.id.fragment_container, new ListFragment(), FRAGMENT_LIST_TAG)
-          .commit();
+              .commit();
     }
-
-    handleIntents();
   }
 
   private FragmentManager getFragmentManagerInstance() {
@@ -202,7 +214,7 @@ public class MainActivity extends BaseActivity implements
     super.onNewIntent(intent);
     setIntent(intent);
     handleIntents();
-    LogDelegate.d("onNewIntent");
+    LogDelegate.debugLog("onNewIntent");
   }
 
 
@@ -230,16 +242,20 @@ public class MainActivity extends BaseActivity implements
     }
   }
 
-  public Fragment startSearchView() {
+  private Fragment startSearchView() {
     FragmentTransaction transaction = getFragmentManagerInstance().beginTransaction();
     animateTransition(transaction, TRANSITION_HORIZONTAL);
     ListFragment mListFragment = new ListFragment();
     transaction.replace(R.id.fragment_container, mListFragment, FRAGMENT_LIST_TAG).addToBackStack
-        (FRAGMENT_DETAIL_TAG).commit();
+            (FRAGMENT_DETAIL_TAG).commit();
+    setListFragmentArguments(mListFragment);
+    return mListFragment;
+  }
+
+  private void setListFragmentArguments(ListFragment mListFragment) {
     Bundle args = new Bundle();
     args.putBoolean("setSearchFocus", true);
     mListFragment.setArguments(args);
-    return mListFragment;
   }
 
 
@@ -265,50 +281,57 @@ public class MainActivity extends BaseActivity implements
 
   @Override
   public void onBackPressed() {
-
-    // SketchFragment
-    Fragment f = checkFragmentInstance(R.id.fragment_container, SketchFragment.class);
-    if (f != null) {
-      ((SketchFragment) f).save();
-
-      // Removes forced portrait orientation for this fragment
-      setRequestedOrientation(
-          ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-
-      getFragmentManagerInstance().popBackStack();
-      return;
-    }
-
-    // DetailFragment
-    f = checkFragmentInstance(R.id.fragment_container, DetailFragment.class);
-    if (f != null) {
-      ((DetailFragment) f).goBack = true;
-      ((DetailFragment) f).saveAndExit((DetailFragment) f);
-      return;
-    }
-
-    // ListFragment
-    f = checkFragmentInstance(R.id.fragment_container, ListFragment.class);
-    if (f != null) {
-      // Before exiting from app the navigation drawer is opened
-      if (Prefs.getBoolean("settings_navdrawer_on_exit", false) && getDrawerLayout() != null &&
-          !getDrawerLayout().isDrawerOpen(GravityCompat.START)) {
-        getDrawerLayout().openDrawer(GravityCompat.START);
-      } else if (!Prefs.getBoolean("settings_navdrawer_on_exit", false) && getDrawerLayout() != null
-          &&
-          getDrawerLayout().isDrawerOpen(GravityCompat.START)) {
-        getDrawerLayout().closeDrawer(GravityCompat.START);
-      } else {
-        if (!((ListFragment) f).closeFab()) {
-          isPasswordAccepted = false;
-          super.onBackPressed();
-        }
-      }
-      return;
-    }
+    inCaseOfSketchFragment();
+    inCaseOfDetailFragment();
+    inCaseOfListFragment();
     super.onBackPressed();
   }
 
+  private void inCaseOfSketchFragment() {
+    // SketchFragment
+    Fragment fragment = checkFragmentInstance(R.id.fragment_container, SketchFragment.class);
+    if (fragment != null) {
+      ((SketchFragment) fragment).save();
+
+      // Removes forced portrait orientation for this fragment
+      setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+
+      getFragmentManagerInstance().popBackStack();
+    }
+  }
+
+  private void inCaseOfDetailFragment() {
+    // DetailFragment
+    Fragment fragment = checkFragmentInstance(R.id.fragment_container, DetailFragment.class);
+    if (fragment != null) {
+      ((DetailFragment) fragment).goBack = true;
+      ((DetailFragment) fragment).saveAndExit((DetailFragment) fragment);
+    }
+  }
+
+  private void inCaseOfListFragment() {
+    // ListFragment
+    Fragment fragment = checkFragmentInstance(R.id.fragment_container, ListFragment.class);
+    if (fragment != null) {
+      // Before exiting from app the navigation drawer is opened
+      boolean isNavdrawerOnExitSetted = Prefs.getBoolean("settings_navdrawer_on_exit", false);
+      boolean isDrawerLayoutInExistence = getDrawerLayout() != null;
+      boolean isDrawerOpened = getDrawerLayout().isDrawerOpen(GravityCompat.START);
+      if (isNavdrawerOnExitSetted && isDrawerLayoutInExistence && !isDrawerOpened) {
+        getDrawerLayout().openDrawer(GravityCompat.START);
+      } else if (!isNavdrawerOnExitSetted && isDrawerLayoutInExistence && isDrawerOpened) {
+        getDrawerLayout().closeDrawer(GravityCompat.START);
+      } else {
+        if (!((ListFragment) fragment).closeFab()) {
+          setPasswordAcceptedFalse();
+        }
+      }
+    }
+  }
+
+  private void setPasswordAcceptedFalse() {
+    isPasswordAccepted = false;
+  }
 
   @Override
   public void onSaveInstanceState(Bundle outState) {
@@ -330,9 +353,10 @@ public class MainActivity extends BaseActivity implements
 
 
   public ActionBarDrawerToggle getDrawerToggle() {
-    if (getFragmentManagerInstance().findFragmentById(R.id.navigation_drawer) != null) {
-      return ((NavigationDrawerFragment) getFragmentManagerInstance().findFragmentById(
-          R.id.navigation_drawer)).mDrawerToggle;
+    NavigationDrawerFragment mNavigationDrawerFragment =
+            (NavigationDrawerFragment) getFragmentManagerInstance().findFragmentById(R.id.navigation_drawer);
+    if (mNavigationDrawerFragment != null) {
+      return mNavigationDrawerFragment.mDrawerToggle;
     } else {
       return null;
     }
@@ -343,8 +367,7 @@ public class MainActivity extends BaseActivity implements
    * Finishes multiselection mode started by ListFragment
    */
   public void finishActionMode() {
-    ListFragment fragment = (ListFragment) getFragmentManagerInstance()
-        .findFragmentByTag(FRAGMENT_LIST_TAG);
+    ListFragment fragment = (ListFragment) getFragmentManagerInstance().findFragmentByTag(FRAGMENT_LIST_TAG);
     if (fragment != null) {
       fragment.finishActionMode();
     }
@@ -357,48 +380,40 @@ public class MainActivity extends BaseActivity implements
 
 
   private void handleIntents() {
-    Intent i = getIntent();
+    Intent intent = getIntent();
 
-    if (i.getAction() == null) {
+    if (intent.getAction() == null) {
       return;
     }
 
-    if (ACTION_RESTART_APP.equals(i.getAction())) {
+    boolean isRestartAppAction = ACTION_RESTART_APP.equals(intent.getAction());
+    if (isRestartAppAction) {
       SystemHelper.restartApp(getApplicationContext(), MainActivity.class);
     }
 
-    if (receivedIntent(i)) {
-      Note note = i.getParcelableExtra(INTENT_NOTE);
-      if (note == null) {
-        note = DbHelper.getInstance().getNote(i.getIntExtra(INTENT_KEY, 0));
-      }
-      // Checks if the same note is already opened to avoid to open again
-      if (note != null && noteAlreadyOpened(note)) {
-        return;
-      }
-      // Empty note instantiation
-      if (note == null) {
-        note = new Note();
-      }
-      switchToDetail(note);
+    if (receivedIntent(intent)) {
+      openNoteFromIntent(intent);
       return;
     }
 
-    if (ACTION_SEND_AND_EXIT.equals(i.getAction())) {
-      saveAndExit(i);
+    boolean isSendAndExitAction = ACTION_SEND_AND_EXIT.equals(intent.getAction());
+    if (isSendAndExitAction) {
+      saveAndExit(intent);
       return;
     }
 
     // Tag search
-    if (Intent.ACTION_VIEW.equals(i.getAction()) && i.getDataString()
-        .startsWith(UrlCompleter.HASHTAG_SCHEME)) {
+    boolean isViewAction = Intent.ACTION_VIEW.equals(intent.getAction());
+    boolean startsWithHashTag = intent.getDataString().startsWith(UrlCompleter.HASHTAG_SCHEME);
+    if (isViewAction && startsWithHashTag) {
       switchToList();
       return;
     }
 
     // Home launcher shortcut widget
-    if (Intent.ACTION_VIEW.equals(i.getAction()) && i.getData() != null) {
-      Long id = Long.valueOf(Uri.parse(i.getDataString()).getQueryParameter("id"));
+    boolean hasData = intent.getData() != null;
+    if (isViewAction && hasData) {
+      Long id = Long.valueOf(Uri.parse(intent.getDataString()).getQueryParameter("id"));
       Note note = DbHelper.getInstance().getNote(id);
       if (note == null) {
         showMessage(R.string.note_doesnt_exist, ONStyle.ALERT);
@@ -409,43 +424,60 @@ public class MainActivity extends BaseActivity implements
     }
 
     // Home launcher "new note" shortcut widget
-    if (ACTION_SHORTCUT_WIDGET.equals(i.getAction())) {
+    boolean isShortcutWidgetAction = ACTION_SHORTCUT_WIDGET.equals(intent.getAction());
+    if (isShortcutWidgetAction) {
       switchToDetail(new Note());
-      return;
     }
   }
 
 
+  private void openNoteFromIntent(Intent intent) {
+    Note note = intent.getParcelableExtra(INTENT_NOTE);
+    if (note == null) {
+      note = DbHelper.getInstance().getNote(intent.getIntExtra(INTENT_KEY, 0));
+    }
+    // Checks if the same note is already opened to avoid to open again
+    if (note != null && noteAlreadyOpened(note)) {
+      return;
+    }
+    // Empty note instantiation
+    if (note == null) {
+      note = new Note();
+    }
+    switchToDetail(note);
+  }
+
   /**
    * Used to perform a quick text-only note saving (eg. Tasker+Pushbullet)
    */
-  private void saveAndExit(Intent i) {
+  private void saveAndExit(Intent intent) {
     Note note = new Note();
-    note.setTitle(i.getStringExtra(Intent.EXTRA_SUBJECT));
-    note.setContent(i.getStringExtra(Intent.EXTRA_TEXT));
+    note.setTitle(intent.getStringExtra(Intent.EXTRA_SUBJECT));
+    note.setContent(intent.getStringExtra(Intent.EXTRA_TEXT));
     DbHelper.getInstance().updateNote(note, true);
     showToast(getString(R.string.note_updated), Toast.LENGTH_SHORT);
     finish();
   }
 
 
-  private boolean receivedIntent(Intent i) {
-    return ACTION_SHORTCUT.equals(i.getAction())
-        || ACTION_NOTIFICATION_CLICK.equals(i.getAction())
-        || ACTION_WIDGET.equals(i.getAction())
-        || ACTION_WIDGET_TAKE_PHOTO.equals(i.getAction())
-        || ((Intent.ACTION_SEND.equals(i.getAction())
-        || Intent.ACTION_SEND_MULTIPLE.equals(i.getAction())
-        || INTENT_GOOGLE_NOW.equals(i.getAction()))
-        && i.getType() != null)
-        || i.getAction().contains(ACTION_NOTIFICATION_CLICK);
+  private boolean receivedIntent(Intent intent) {
+    return ACTION_SHORTCUT.equals(intent.getAction())
+        || ACTION_NOTIFICATION_CLICK.equals(intent.getAction())
+        || ACTION_WIDGET.equals(intent.getAction())
+        || ACTION_WIDGET_TAKE_PHOTO.equals(intent.getAction())
+        || ((Intent.ACTION_SEND.equals(intent.getAction())
+        || Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())
+        || INTENT_GOOGLE_NOW.equals(intent.getAction()))
+        && intent.getType() != null)
+        || intent.getAction().contains(ACTION_NOTIFICATION_CLICK);
   }
 
 
   private boolean noteAlreadyOpened(Note note) {
     DetailFragment detailFragment = (DetailFragment) getFragmentManagerInstance().findFragmentByTag(
         FRAGMENT_DETAIL_TAG);
-    return detailFragment != null && NotesHelper.haveSameId(note, detailFragment.getCurrentNote());
+    boolean isSameNote = NotesHelper.haveSameId(note, detailFragment.getCurrentNote());
+    return detailFragment != null && isSameNote;
   }
 
 
@@ -455,10 +487,10 @@ public class MainActivity extends BaseActivity implements
     ListFragment mListFragment = new ListFragment();
     transaction.replace(R.id.fragment_container, mListFragment, FRAGMENT_LIST_TAG).addToBackStack
         (FRAGMENT_DETAIL_TAG).commitAllowingStateLoss();
-    if (getDrawerToggle() != null) {
-      getDrawerToggle().setDrawerIndicatorEnabled(false);
+    ActionBarDrawerToggle mActionBarDrawerToggle = getDrawerToggle();
+    if (mActionBarDrawerToggle != null) {
+      mActionBarDrawerToggle.setDrawerIndicatorEnabled(false);
     }
-    getFragmentManagerInstance().getFragments();
     EventBus.getDefault().post(new SwitchFragmentEvent(SwitchFragmentEvent.Direction.PARENT));
   }
 
@@ -467,10 +499,10 @@ public class MainActivity extends BaseActivity implements
     FragmentTransaction transaction = getFragmentManagerInstance().beginTransaction();
     animateTransition(transaction, TRANSITION_HORIZONTAL);
     DetailFragment mDetailFragment = new DetailFragment();
-    Bundle b = new Bundle();
-    b.putParcelable(INTENT_NOTE, note);
-    mDetailFragment.setArguments(b);
-    if (getFragmentManagerInstance().findFragmentByTag(FRAGMENT_DETAIL_TAG) == null) {
+    setDetailFragmentArgument(mDetailFragment, note);
+    DetailFragment currentDetailFragment =
+            (DetailFragment) getFragmentManagerInstance().findFragmentByTag(FRAGMENT_DETAIL_TAG);
+    if (currentDetailFragment == null) {
       transaction.replace(R.id.fragment_container, mDetailFragment, FRAGMENT_DETAIL_TAG)
           .addToBackStack(FRAGMENT_LIST_TAG)
           .commitAllowingStateLoss();
@@ -480,6 +512,12 @@ public class MainActivity extends BaseActivity implements
           .addToBackStack(FRAGMENT_DETAIL_TAG)
           .commitAllowingStateLoss();
     }
+  }
+
+  private void setDetailFragmentArgument(DetailFragment mDetailFragment, Note note) {
+    Bundle b = new Bundle();
+    b.putParcelable(INTENT_NOTE, note);
+    mDetailFragment.setArguments(b);
   }
 
 
@@ -495,42 +533,71 @@ public class MainActivity extends BaseActivity implements
         + note.getContent();
 
     Intent shareIntent = new Intent();
-    // Prepare sharing intent with only text
-    if (note.getAttachmentsList().isEmpty()) {
-      shareIntent.setAction(Intent.ACTION_SEND);
-      shareIntent.setType("text/plain");
+    List<Attachment> attachmentsList = note.getAttachmentsList();
 
-      // Intent with single image attachment
-    } else if (note.getAttachmentsList().size() == 1) {
-      shareIntent.setAction(Intent.ACTION_SEND);
-      Attachment attachment = note.getAttachmentsList().get(0);
-      shareIntent.setType(attachment.getMime_type());
-      shareIntent.putExtra(Intent.EXTRA_STREAM, FileProviderHelper.getShareableUri(attachment));
+    if (attachmentsList.isEmpty()) {
+      shareIntentOnlyWithText(shareIntent);
 
-      // Intent with multiple images
-    } else if (note.getAttachmentsList().size() > 1) {
-      shareIntent.setAction(Intent.ACTION_SEND_MULTIPLE);
-      ArrayList<Uri> uris = new ArrayList<>();
-      // A check to decide the mime type of attachments to share is done here
-      HashMap<String, Boolean> mimeTypes = new HashMap<>();
-      for (Attachment attachment : note.getAttachmentsList()) {
-        uris.add(FileProviderHelper.getShareableUri(attachment));
-        mimeTypes.put(attachment.getMime_type(), true);
-      }
-      // If many mime types are present a general type is assigned to intent
-      if (mimeTypes.size() > 1) {
-        shareIntent.setType("*/*");
-      } else {
-        shareIntent.setType((String) mimeTypes.keySet().toArray()[0]);
-      }
+    } else if (attachmentsList.size() == 1) {
+      shareIntentWithSingleImageAttachment(shareIntent, attachmentsList);
 
-      shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+    } else if (attachmentsList.size() > 1) {
+      shareIntentWithMultipleImages(shareIntent, attachmentsList);
     }
     shareIntent.putExtra(Intent.EXTRA_SUBJECT, titleText);
     shareIntent.putExtra(Intent.EXTRA_TEXT, contentText);
 
     startActivity(Intent
         .createChooser(shareIntent, getResources().getString(R.string.share_message_chooser)));
+  }
+
+  private void shareIntentWithMultipleImages(Intent shareIntent, List<Attachment> attachmentsList) {
+    shareIntent.setAction(Intent.ACTION_SEND_MULTIPLE);
+    ArrayList<Uri> uris = getShareableUris(attachmentsList);
+
+    // A check to decide the mime type of attachments to share is done here
+    HashMap<String, Boolean> mimeTypes = getMimeTypes(attachmentsList);
+
+    // If many mime types are present a general type is assigned to intent
+    setShareIntentType(shareIntent, mimeTypes);
+
+    shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+  }
+
+  private void shareIntentWithSingleImageAttachment(Intent shareIntent, List<Attachment> attachmentsList) {
+    shareIntent.setAction(Intent.ACTION_SEND);
+    Attachment attachment = attachmentsList.get(0);
+    shareIntent.setType(attachment.getMime_type());
+    shareIntent.putExtra(Intent.EXTRA_STREAM, FileProviderHelper.getShareableUri(attachment));
+  }
+
+  private void shareIntentOnlyWithText(Intent shareIntent) {
+    shareIntent.setAction(Intent.ACTION_SEND);
+    shareIntent.setType("text/plain");
+  }
+
+  private void setShareIntentType(Intent shareIntent, HashMap<String, Boolean> mimeTypes) {
+    if (mimeTypes.size() > 1) {
+      shareIntent.setType("*/*");
+    } else {
+      shareIntent.setType((String) mimeTypes.keySet().toArray()[0]);
+    }
+  }
+
+  private ArrayList<Uri> getShareableUris(List<Attachment> attachmentsList) {
+    ArrayList<Uri> uris = new ArrayList<>();
+    for (Attachment attachment : attachmentsList) {
+      uris.add(FileProviderHelper.getShareableUri(attachment));
+    }
+    return uris;
+  }
+
+  private HashMap<String, Boolean> getMimeTypes(List<Attachment> attachmentsList) {
+    HashMap<String, Boolean> mimeTypes = new HashMap<>();
+    for (Attachment attachment : attachmentsList) {
+      mimeTypes.put(attachment.getMime_type(), true);
+    }
+    return mimeTypes;
   }
 
 
@@ -542,7 +609,7 @@ public class MainActivity extends BaseActivity implements
   public void deleteNote(Note note) {
     new NoteProcessorDelete(Collections.singletonList(note)).process();
     BaseActivity.notifyAppWidgets(this);
-    LogDelegate.d("Deleted permanently note with ID '" + note.get_id() + "'");
+    LogDelegate.debugLog("Deleted permanently note with ID '" + note.get_id() + "'");
   }
 
 
@@ -565,7 +632,18 @@ public class MainActivity extends BaseActivity implements
 
   @Override
   public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+    setPrefsChangedTrue();
+  }
+
+  private void setPrefsChangedTrue() {
     prefsChanged = true;
   }
 
+  public void setPrefsChangedFalse() {
+    prefsChanged = false;
+  }
+
+  public boolean getPrefsChanged() {
+    return prefsChanged;
+  }
 }

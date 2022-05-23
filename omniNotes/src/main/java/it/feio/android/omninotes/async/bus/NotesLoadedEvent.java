@@ -31,8 +31,11 @@ public class NotesLoadedEvent {
   private List<Note> notes;
 
   public NotesLoadedEvent(List<Note> notes) {
-    LogDelegate.d(this.getClass().getName());
+    LogDelegate.debugLog(this.getClass().getName());
     this.notes = notes;
   }
 
+  public List<Note> getNotes() {
+    return notes;
+  }
 }
