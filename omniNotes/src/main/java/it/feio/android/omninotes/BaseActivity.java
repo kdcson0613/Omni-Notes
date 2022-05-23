@@ -129,8 +129,9 @@ public class BaseActivity extends AppCompatActivity {
 		mPasswordValidator.onPasswordValidated(PasswordValidator.Result.SUCCEED);
 	}
   public boolean updateNavigation(String nav) {
-    if (nav.equals(navigationTmp) || (navigationTmp == null && Navigation.getNavigationText()
-        .equals(nav))) {
+    boolean isNavEqualsTmp = nav.equals(navigationTmp);
+    boolean isnavEqualsNavi = Navigation.getNavigationText().equals(nav);
+    if (isNavEqualsTmp || (navigationTmp == null && isnavEqualsNavi)) {
       return false;
     }
     Prefs.edit().putString(PREF_NAVIGATION, nav).apply();
@@ -166,13 +167,12 @@ public class BaseActivity extends AppCompatActivity {
 
   @SuppressLint("InlinedApi")
   protected void animateTransition(FragmentTransaction transaction, int direction) {
-    boolean isDirectionHorizontal = direction == TRANSITION_HORIZONTAL;
-    boolean isDirectionVertical = direction == TRANSITION_VERTICAL;
-    if (isDirectionHorizontal) {
+    switch (direction) {
+      case TRANSITION_HORIZONTAL:
       transaction.setCustomAnimations(R.anim.fade_in_support, R.anim.fade_out_support, R.anim.fade_in_support, R.anim.fade_out_support);
-    }
-    if (isDirectionVertical) {
-      transaction.setCustomAnimations(R.anim.anim_in, R.anim.anim_out, R.anim.anim_in_pop, R.anim.anim_out_pop);
+    break;
+      case TRANSITION_VERTICAL:
+      transaction.setCustomAnimations(R.anim.anim_in, R.anim.anim_out, R.anim.anim_in_pop, R.anim.anim_out_pop);break;
     }
   }
 
@@ -189,6 +189,7 @@ public class BaseActivity extends AppCompatActivity {
     if (notEmptyActionBarTitleView) {
       actionBarTitleView.setTypeface(font);
     }
+
     if (notEmptySupportActionBar) {
       getSupportActionBar().setTitle(title);
     }
