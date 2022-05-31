@@ -279,16 +279,16 @@ public class SettingsFragment extends PreferenceFragmentCompat {
     if (swipeToTrash != null) {
       if (Prefs.getBoolean("settings_swipe_to_trash", false)) {
         swipeToTrash.setChecked(true);
-        swipeToTrash.setSummary(getResources().getString(R.string.settings_swipe_to_trash_summary_2));
+        swipeToTrashsetSummary(R.string.settings_swipe_to_trash_summary_2);
       } else {
         swipeToTrash.setChecked(false);
-        swipeToTrash.setSummary(getResources().getString(R.string.settings_swipe_to_trash_summary_1));
+        swipeToTrashsetSummary(R.string.settings_swipe_to_trash_summary_1);
       }
       swipeToTrash.setOnPreferenceChangeListener((preference, newValue) -> {
         if ((Boolean) newValue) {
-          swipeToTrash.setSummary(getResources().getString(R.string.settings_swipe_to_trash_summary_2));
+          swipeToTrashsetSummary(R.string.settings_swipe_to_trash_summary_2);
         } else {
-          swipeToTrash.setSummary(getResources().getString(R.string.settings_swipe_to_trash_summary_1));
+          swipeToTrashsetSummary(R.string.settings_swipe_to_trash_summary_1);
         }
         return true;
       });
@@ -547,6 +547,12 @@ public class SettingsFragment extends PreferenceFragmentCompat {
       });
     }
   }
+
+  private void swipeToTrashsetSummary(int str) {
+    android.preference.ListPreference swipeToTrash = null;
+    swipeToTrash.setSummary(getResources().getString(Integer.parseInt(String.valueOf(str))));
+  }
+
 
   private void importNotes() {
     String[] backupsArray = StorageHelper.getOrCreateExternalStoragePublicDir().list();
