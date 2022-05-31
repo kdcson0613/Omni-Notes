@@ -41,6 +41,7 @@ import it.feio.android.omninotes.async.bus.NavigationUpdatedNavDrawerClosedEvent
 import it.feio.android.omninotes.async.bus.NotesLoadedEvent;
 import it.feio.android.omninotes.async.bus.NotesUpdatedEvent;
 import it.feio.android.omninotes.async.bus.SwitchFragmentEvent;
+import it.feio.android.omninotes.helpers.EventHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
 import it.feio.android.omninotes.models.Category;
 import it.feio.android.omninotes.models.NavigationItem;
@@ -49,13 +50,11 @@ import it.feio.android.omninotes.utils.Display;
 
 public class NavigationDrawerFragment extends Fragment {
 
-  static final int BURGER = 0;
-  static final int ARROW = 1;
-
   ActionBarDrawerToggle mDrawerToggle;
-  DrawerLayout mDrawerLayout;
-  private MainActivity mActivity;
-  private boolean alreadyInitialized;
+  protected DrawerLayout mDrawerLayout;
+  protected MainActivity mActivity;
+  protected boolean alreadyInitialized;
+  private  EventHelper eventHelper;
 
 
   @Override
@@ -94,7 +93,7 @@ public class NavigationDrawerFragment extends Fragment {
   }
 
 
-  private MainActivity getMainActivity() {
+  protected MainActivity getMainActivity() {
     return (MainActivity) getActivity();
   }
 
@@ -107,58 +106,28 @@ public class NavigationDrawerFragment extends Fragment {
     }
   }
 
-
-  public void onEvent(CategoriesUpdatedEvent event) {
-    refreshMenus();
+  public void onEventHandler(CategoriesUpdatedEvent CategoriesEvent,
+                             NotesLoadedEvent NotesEvent,
+                             SwitchFragmentEvent SwitchEvent,
+                             NavigationUpdatedEvent NavigationEvent) {
+    if (CategoriesEvent != null) {
+      eventHelper.onEvent(CategoriesEvent);
+    }
+    if (NotesEvent != null) {
+      eventHelper.onEvent(NotesEvent);
+    }
+    if (SwitchEvent != null) {
+      eventHelper.onEvent(SwitchEvent);
+    }
+    if (NavigationEvent != null) {
+      eventHelper.onEvent(NavigationEvent);
+    }
   }
 
 
   public void onEventAsync(NotesUpdatedEvent event) {
     alreadyInitialized = false;
   }
-
-
-  public void onEvent(NotesLoadedEvent event) {
-    if (mDrawerLayout != null) {
-      if (!isDoublePanelActive()) {
-        mDrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED);
-      }
-    }
-    if (getMainActivity().getSupportFragmentManager().getBackStackEntryCount() == 0) {
-      init();
-    }
-    refreshMenus();
-    alreadyInitialized = true;
-  }
-
-
-  public void onEvent(SwitchFragmentEvent event) {
-    if (CHILDREN.equals(event.getDirection())) {
-      animateBurger(ARROW);
-    } else {
-      animateBurger(BURGER);
-    }
-  }
-
-
-  public void onEvent(NavigationUpdatedEvent navigationUpdatedEvent) {
-    if (navigationUpdatedEvent.navigationItem.getClass().isAssignableFrom(NavigationItem.class)) {
-      mActivity.getSupportActionBar()
-          .setTitle(((NavigationItem) navigationUpdatedEvent.navigationItem).getText());
-    } else {
-      mActivity.getSupportActionBar()
-          .setTitle(((Category) navigationUpdatedEvent.navigationItem).getName());
-    }
-    if (mDrawerLayout != null) {
-      if (!isDoublePanelActive()) {
-        mDrawerLayout.closeDrawer(GravityCompat.START);
-      }
-      new Handler()
-          .postDelayed(() -> EventBus.getDefault().post(new NavigationUpdatedNavDrawerClosedEvent
-              (navigationUpdatedEvent.navigationItem)), 400);
-    }
-  }
-
 
   public void init() {
     LogDelegate.vervoseLog("Started navigation drawer initialization");
@@ -191,10 +160,6 @@ public class NavigationDrawerFragment extends Fragment {
       }
     };
 
-    if (isDoublePanelActive()) {
-      mDrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_OPEN);
-    }
-
     // Styling options
     mDrawerLayout.setDrawerShadow(R.drawable.drawer_shadow, GravityCompat.START);
     mDrawerLayout.addDrawerListener(mDrawerToggle);
@@ -204,7 +169,7 @@ public class NavigationDrawerFragment extends Fragment {
   }
 
 
-  private void refreshMenus() {
+  protected void refreshMenus() {
     buildMainMenu();
     LogDelegate.vervoseLog("Finished main menu initialization");
     buildCategoriesMenu();
@@ -225,9 +190,9 @@ public class NavigationDrawerFragment extends Fragment {
   }
 
 
-  void animateBurger(int targetShape) {
+  protected void animateBurger(int targetShape) {
     if (mDrawerToggle != null) {
-      if (targetShape != BURGER && targetShape != ARROW) {
+      if (targetShape != EventHelper.BURGER && targetShape != EventHelper.ARROW) {
         return;
       }
       ValueAnimator anim = ValueAnimator.ofFloat((targetShape + 1) % 2, targetShape);
@@ -241,12 +206,5 @@ public class NavigationDrawerFragment extends Fragment {
     }
   }
 
-
-  public static boolean isDoublePanelActive() {
-//		Resources resources = OmniNotes.getAppContext().getResources();
-//		return resources.getDimension(R.dimen.navigation_drawer_width) == resources.getDimension(R.dimen
-//				.navigation_drawer_reserved_space);
-    return false;
-  }
 
 }

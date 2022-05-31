@@ -133,6 +133,7 @@ import it.feio.android.omninotes.databinding.FragmentDetailBinding;
 import it.feio.android.omninotes.db.DbHelper;
 import it.feio.android.omninotes.exceptions.checked.UnhandledIntentException;
 import it.feio.android.omninotes.helpers.AttachmentsHelper;
+import it.feio.android.omninotes.helpers.EventHelper;
 import it.feio.android.omninotes.helpers.IntentHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
 import it.feio.android.omninotes.helpers.PermissionsHelper;
@@ -314,7 +315,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     mainActivity.getToolbar().setNavigationOnClickListener(v -> navigateUp());
 
     // Force the navigation drawer to stay opened if tablet mode is on, otherwise has to stay closed
-    if (NavigationDrawerFragment.isDoublePanelActive()) {
+    if (EventHelper.isDoublePanelActive()) {
       mainActivity.getDrawerLayout().setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_OPEN);
     } else {
       mainActivity.getDrawerLayout().setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
