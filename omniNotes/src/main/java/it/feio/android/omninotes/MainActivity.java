@@ -646,4 +646,7 @@ public class MainActivity extends BaseActivity implements
   public boolean getPrefsChanged() {
     return prefsChanged;
   }
+
+  public Uri getSketchUri() { return sketchUri; }
+  public void setSketchUri() { this.sketchUri = sketchUri; }
 }

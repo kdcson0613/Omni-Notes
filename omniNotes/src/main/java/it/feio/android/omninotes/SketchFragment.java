@@ -202,7 +202,7 @@ public class SketchFragment extends Fragment implements OnDrawChangedListener {
         bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
         out.close();
         if (bitmapFile.exists()) {
-          getMainActivity().setSketchUri(uri);
+          getMainActivity().setSketchUri();
         } else {
           getMainActivity().showMessage(R.string.error, ONStyle.ALERT);
         }
