@@ -23,6 +23,10 @@ import lombok.Setter;
 
 public class SwitchFragmentEvent {
 
+    public SwitchFragmentEvent() {
+
+    }
+
     public enum Direction {
     CHILDREN, PARENT
   }

@@ -18,7 +18,6 @@
 package it.feio.android.omninotes;
 
 import static it.feio.android.omninotes.async.bus.SwitchFragmentEvent.Direction.CHILDREN;
-
 import android.animation.ValueAnimator;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -111,17 +110,37 @@ public class NavigationDrawerFragment extends Fragment {
                              SwitchFragmentEvent SwitchEvent,
                              NavigationUpdatedEvent NavigationEvent) {
     if (CategoriesEvent != null) {
-      eventHelper.onEvent(CategoriesEvent);
+      try {
+        eventHelper.onEvent(CategoriesEvent);
+      } catch ( NullPointerException e) {
+        throw new NullPointerException("Null object");
+      }
     }
+
     if (NotesEvent != null) {
-      eventHelper.onEvent(NotesEvent);
+      try {
+        eventHelper.onEvent(NotesEvent);
+      } catch ( NullPointerException e) {
+        throw new NullPointerException("Null object");
+      }
     }
+
     if (SwitchEvent != null) {
-      eventHelper.onEvent(SwitchEvent);
+      try {
+        eventHelper.onEvent(SwitchEvent);
+      } catch (NullPointerException e) {
+        throw new NullPointerException("Null object");
+      }
     }
+
     if (NavigationEvent != null) {
-      eventHelper.onEvent(NavigationEvent);
+      try {
+        eventHelper.onEvent(NavigationEvent);
+      } catch (NullPointerException e) {
+        throw new NullPointerException("Null object");
+      }
     }
+
   }
 
 
